@@ -83,7 +83,7 @@ void solve_wsp(solution_t *solution) {
     }
   }
   // size_t start_city;
-  /*
+  /* anytihng
    * We never start at city 0 - any path starting with 0 will be equivalent to
    * another path passing through 0.
    */

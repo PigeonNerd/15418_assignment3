@@ -1,0 +1,36 @@
+#!/bin/csh
+#PBS -l ncpus=256
+#ncpus must be a multiple of 16
+#PBS -l walltime=10:00              
+#PBS -j oe
+#PBS -q batch
+
+# Echo all following commands.
+set echo
+
+# Load the openmpi module, for mpirun. 
+source /usr/share/modules/init/csh
+module load openmpi/1.6/gnu
+
+# Start job info timing.
+ja 
+
+# Move to my $SCRATCH directory.
+cd $SCRATCH
+
+# Set this to the important directory.
+set execdir=$HOME/asst3/prog2_wsp_mpi
+
+# Copy executable to $SCRATCH.
+cp $execdir/wsp .
+
+# Run my executable
+foreach ncores ( 256 128 64 32 16 8 4 2 1 )
+	foreach input ( dist17 )
+		# Copy the input to $SCRATCH.
+		cp $execdir/input/$input .
+		mpirun -np $ncores ./wsp -i $input 
+	end
+end
+
+ja -chlst 

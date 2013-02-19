@@ -56,7 +56,7 @@ void solve_wsp(solution_t *solution) {
    */
   approx_wsp_greedy(solution);
   solution_t localSolution;
-  printf("The initial distance is: %d\n", localSolution.distance);
+ // printf("The initial distance is: %d\n", localSolution.distance);
   /* The iterations of the for loop will be split up accross all threads. */
   #pragma omp parallel for private(localSolution)
   for (size_t start_city = 0; start_city < ncities; start_city++) {
@@ -70,12 +70,12 @@ void solve_wsp(solution_t *solution) {
     }
     unvisited[0] = start_city;
     unvisited[start_city] = 0;
-    printf("before call, best solution is: %d\n", localSolution.distance);
+   // printf("before call, best solution is: %d\n", localSolution.distance);
     solve_wsp_serial(start_city, 0, unvisited,
                      &unvisited[1], ncities - 1, &localSolution);
     #pragma omp critical
     {
-      printf("Thread %d got iteration %lu with distance %d\n", omp_get_thread_num(), start_city, localSolution.distance);
+     // printf("Thread %d got iteration %lu with distance %d\n", omp_get_thread_num(), start_city, localSolution.distance);
         if ( localSolution.distance < solution->distance ) {
             solution->distance = localSolution.distance;
             memcpy(solution->path, localSolution.path, ncities);

@@ -99,7 +99,7 @@ void solve_wsp_serial(size_t current_city, int current_distance,
      * solution if appropriate.
      */
     if (current_distance < best_solution->distance) {
-      printf("I got %d\n", current_distance);
+      //printf("I got %d\n", current_distance);
       best_solution->distance = current_distance;
       memcpy(best_solution->path, current_route, ncities);
     }

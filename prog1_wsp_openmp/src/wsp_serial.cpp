@@ -1,5 +1,5 @@
 /* Copyright 2013 15418 Course Staff */
-
+//This is the serial code
 #include <assert.h>
 #include <limits.h>
 #include <stdlib.h>

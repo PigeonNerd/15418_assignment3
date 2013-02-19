@@ -92,16 +92,21 @@ void approx_wsp_greedy(solution_t *solution) {
 void solve_wsp_serial(size_t current_city, int current_distance,
                       unsigned char *current_route,
                       unsigned char *unvisited, size_t num_unvisited,
-                      solution_t *best_solution) {
+                      solution_t *best_solution, solution_t *general_solution) {
   if (num_unvisited == 0) {
     /*
      * If there are no more cities left unvisited, update the global best
      * solution if appropriate.
      */
-    if (current_distance < best_solution->distance) {
-      //printf("I got %d\n", current_distance);
-      best_solution->distance = current_distance;
-      memcpy(best_solution->path, current_route, ncities);
+#pragma omp critical
+    {
+      if (current_distance < general_solution->distance) {
+	//printf("I got %d\n", current_distance);
+	general_solution->distance = current_distance;
+	best_solution->distance = current_distance;
+	memcpy(general_solution->path, current_route, ncities);
+	memcpy(best_solution->path, current_route, ncities);
+      }
     }
     return;
   }
@@ -119,7 +124,7 @@ void solve_wsp_serial(size_t current_city, int current_distance,
      * betweeen any pair of cities for each unvisited city.
      */
     if (next_dist + shortestEdge * (num_unvisited_i - 1) >=
-        best_solution->distance) {
+        general_solution->distance) {
         continue;
     }
 
@@ -131,7 +136,7 @@ void solve_wsp_serial(size_t current_city, int current_distance,
     unvisited[i] = unvisited[0];
     unvisited[0] = next_city;
     solve_wsp_serial(next_city, next_dist, current_route,
-                     &unvisited[1], num_unvisited - 1, best_solution);
+                     &unvisited[1], num_unvisited - 1, best_solution, general_solution);
 
     /* Restore unvisited to its former state. */
     unvisited[0] = unvisited[i];

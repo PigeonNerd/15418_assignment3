@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "./wsp.h"
-
+#include <omp.h>
 /* The number of cities in the graph. */
 extern size_t ncities;
 
@@ -99,15 +99,15 @@ void solve_wsp_serial(size_t current_city, int current_distance,
      * solution if appropriate.
      */
 #pragma omp critical
-    {
+      {
       if (current_distance < general_solution->distance) {
 	//printf("I got %d\n", current_distance);
-	general_solution->distance = current_distance;
-	best_solution->distance = current_distance;
-	memcpy(general_solution->path, current_route, ncities);
-	memcpy(best_solution->path, current_route, ncities);
+	    general_solution->distance = current_distance;
+	    best_solution->distance = current_distance;
+	    memcpy(general_solution->path, current_route, ncities);
+	    memcpy(best_solution->path, current_route, ncities);
       }
-    }
+      }
     return;
   }
 
@@ -137,9 +137,10 @@ void solve_wsp_serial(size_t current_city, int current_distance,
     unvisited[0] = next_city;
     solve_wsp_serial(next_city, next_dist, current_route,
                      &unvisited[1], num_unvisited - 1, best_solution, general_solution);
-
+    
     /* Restore unvisited to its former state. */
     unvisited[0] = unvisited[i];
     unvisited[i] = next_city;
-  }
+    
+    }
 }

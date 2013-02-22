@@ -59,7 +59,7 @@ OA   */
   // printf("The initial distance is: %d\n", localSolution.distance);
   /* The iterations of the for loop will be split up accross all threads. */
 #pragma omp parallel for private(localSolution) default(shared)
-  for (size_t start_city = 0; start_city < ncities; start_city++) {
+  for (size_t start_city = 1; start_city < ncities; start_city++) {
     /* This block will be executed by at most one thread at a time. */
     unsigned char unvisited[MAX_N];
     localSolution.distance = solution->distance;

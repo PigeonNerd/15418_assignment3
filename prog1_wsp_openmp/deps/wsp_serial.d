@@ -20,4 +20,5 @@ objs/wsp_serial.o deps/wsp_serial.d : src/wsp_serial.cpp /usr/include/assert.h \
  /usr/include/alloca.h /usr/include/string.h /usr/include/stdio.h \
  /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h \
  /usr/local/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/stdarg.h \
- /usr/include/bits/sys_errlist.h src/./wsp.h
+ /usr/include/bits/sys_errlist.h src/./wsp.h \
+ /usr/local/lib/gcc/x86_64-unknown-linux-gnu/4.6.3/include/omp.h

@@ -44,7 +44,7 @@ extern int adj[MAX_N][MAX_N];
 void solve_wsp_serial(size_t current_city, int current_distance,
                       unsigned char *current_route,
                       unsigned char *unvisited, size_t num_unvisited,
-                      solution_t *best_solution, solution_t *general_solution);
+                      solution_t *general_solution);
 
 /* Approximates a solution to the wsp and loads it into solution. */
 void approx_wsp_greedy(solution_t *solution);
@@ -54,25 +54,31 @@ void solve_wsp(solution_t *solution) {
    * Approximate with a greedy solution first so we start with a reasonably
    * tight bound.
 OA   */
-  approx_wsp_greedy(solution);
-  solution_t localSolution;
-  // printf("The initial distance is: %d\n", localSolution.distance);
-  /* The iterations of the for loop will be split up accross all threads. */
-#pragma omp parallel for private(localSolution) default(shared)
+    approx_wsp_greedy(solution);
+    /* The iterations of the for loop will be split up accross all threads. */
+    omp_set_nested(1);
+#pragma omp parallel for default(shared) schedule(dynamic,1)
   for (size_t start_city = 1; start_city < ncities; start_city++) {
-    /* This block will be executed by at most one thread at a time. */
+    
     unsigned char unvisited[MAX_N];
-    localSolution.distance = solution->distance;
-    memcpy(localSolution.path, solution->path, MAX_N);
     size_t j;
     for (j = 0; j < ncities; j ++) {
         unvisited[j] = j;
     }
     unvisited[0] = start_city;
     unvisited[start_city] = 0;
-   // printf("before call, best solution is: %d\n", localSolution.distance);
-    solve_wsp_serial(start_city, 0, unvisited,
-                     &unvisited[1], ncities - 1, &localSolution, solution);
+    //printf("1 start as [%d, %d, %d, %d]\n",unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
+#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic,1)
+    for(size_t i = 1; i < ncities; i ++){
+            if(i != 1){
+                int tmp = unvisited[1];
+                unvisited[1] = unvisited[i];
+                unvisited[i] = tmp;
+            }
+            //printf("Thread %d got iterarion %d ------2 start as [%d, %d, %d, %d]\n", omp_get_thread_num(), i,unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
+            solve_wsp_serial(unvisited[1], adj[start_city][unvisited[1]], unvisited,
+                     &unvisited[2], ncities - 2, solution);
+        }
     /*
 #pragma omp critical
     {
@@ -84,19 +90,4 @@ OA   */
     }
     */
   }
-  // size_t start_city;
-  /* anytihng
-   * We never start at city 0 - any path starting with 0 will be equivalent to
-   * another path passing through 0.
-   */
-  // for (start_city = 1; start_city < ncities; start_city++) {
-  //  unsigned char unvisited[MAX_N];
-  //  for (size_t i = 0; i < ncities; i++) {
-  //    unvisited[i] = i;
-  //  }
-  //  unvisited[0] = start_city;
-  //  unvisited[start_city] = 0;
-  //  solve_wsp_serial(start_city, 0, unvisited,
-  //                   &unvisited[1], ncities - 1, solution);
-  // }
 }

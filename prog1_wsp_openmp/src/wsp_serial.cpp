@@ -92,25 +92,24 @@ void approx_wsp_greedy(solution_t *solution) {
 void solve_wsp_serial(size_t current_city, int current_distance,
                       unsigned char *current_route,
                       unsigned char *unvisited, size_t num_unvisited,
-                      solution_t *best_solution, solution_t *general_solution) {
+                      solution_t *general_solution) {
   if (num_unvisited == 0) {
+    //printf("--------------------------3 finish as  [%d, %d, %d, %d], distance: %d\n", current_route[0],current_route[1], 
+                                                                //current_route[2], current_route[3], general_solution->distance); 
     /*
      * If there are no more cities left unvisited, update the global best
      * solution if appropriate.
      */
 #pragma omp critical
       {
-      if (current_distance < general_solution->distance) {
-	//printf("I got %d\n", current_distance);
-	    general_solution->distance = current_distance;
-	    best_solution->distance = current_distance;
-	    memcpy(general_solution->path, current_route, ncities);
-	    memcpy(best_solution->path, current_route, ncities);
-      }
+        if (current_distance < general_solution->distance) {
+	        //printf("I got %d\n", current_distance);
+	        general_solution->distance = current_distance;
+	        memcpy(general_solution->path, current_route, ncities);
+        }
       }
     return;
   }
-
   size_t i;
   int num_unvisited_i = static_cast < int >(num_unvisited);
   for (i = 0; i < num_unvisited; i++) {
@@ -127,7 +126,6 @@ void solve_wsp_serial(size_t current_city, int current_distance,
         general_solution->distance) {
         continue;
     }
-
     /*
      * Mark next_city as unvisited by moving it to the front of the list and
      * advancing unvisited. This also sorts unvisited in the order we have
@@ -136,11 +134,9 @@ void solve_wsp_serial(size_t current_city, int current_distance,
     unvisited[i] = unvisited[0];
     unvisited[0] = next_city;
     solve_wsp_serial(next_city, next_dist, current_route,
-                     &unvisited[1], num_unvisited - 1, best_solution, general_solution);
-    
+                     &unvisited[1], num_unvisited - 1, general_solution);
     /* Restore unvisited to its former state. */
     unvisited[0] = unvisited[i];
     unvisited[i] = next_city;
-    
     }
 }

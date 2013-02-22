@@ -85,7 +85,7 @@ OA   */
     */
   }
   // size_t start_city;
-  /* anytihng
+  /* anytihng for testing
    * We never start at city 0 - any path starting with 0 will be equivalent to
    * another path passing through 0.
    */

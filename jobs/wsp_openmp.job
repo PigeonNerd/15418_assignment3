@@ -1,0 +1,39 @@
+#!/bin/bash
+#PBS -l ncpus=128
+#ncpus must be a multiple of 16
+#PBS -l walltime=20:00
+
+# Merge stdout and stderr into one output file
+#PBS -j oe
+
+#PBS -q batch
+
+# use the name wsp_openmp.job
+#PBS -N wsp_openmp.job
+
+# Load omplace.
+source /usr/share/modules/init/bash
+module load mpt
+
+# Move to my $SCRATCH directory.
+cd $SCRATCH
+
+# Set this to the important directory.
+execdir=$HOME/Documents/15418/15418_assignment3/prog1_wsp_openmp
+
+# Copy executable to $SCRATCH.
+cp $execdir/wsp wsp
+
+# Make an input directory.
+mkdir -p input
+
+# Run my executable
+for ncores in 128 64 32 16 8 4 2 1
+do
+        for input in dist17
+        do
+                # Copy the input to $SCRATCH.
+                cp $execdir/input/$input .
+                omplace -nt $ncores ./wsp -i $input
+        done
+done

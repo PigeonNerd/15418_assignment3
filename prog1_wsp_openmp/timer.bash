@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Modify these if you want.
-num_threads = 6 
+num_threads = 8
 
 # These things should stay the same.
 num_cities=17
@@ -29,7 +29,7 @@ fi
 # Make sure they already downloaded a scoreboard token.
 if [ ! -f ./scoreboard_token ]
 then
-  cat <<EOM 
+  cat <<EOM
 You must first download a scoreboard token to check your code.
 Get one from http://dolores.sp.cs.cmu.edu/15418_spr13/index.php/scoreboard/token
 Enter it here or save it to a file named "scoreboard_token".
@@ -52,7 +52,7 @@ do
   best_time=9999999.0
   solution=-1
   infile=input/dist$num_cities.$seed
-  python mkinput.py $num_cities --seed=$seed > $infile 
+  python mkinput.py $num_cities --seed=$seed > $infile
 
   # If mkinput.py fails, we should fail.
   if [ $? -ne 0 ]

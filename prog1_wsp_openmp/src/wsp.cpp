@@ -77,13 +77,14 @@ OA   */
 	}
 	//printf("Thread %d got iterarion %d ------2 start as [%d, %d, %d, %d]\n", omp_get_thread_num(), i,unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
 	/*
-#pragma omp parallel for default(shared) schedule(dynamic)
+#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic)
 	for(size_t k = 1; k < ncities; k++) {
 	  if (k != 1 && k!=2) {
 	    int tmp2 = unvisited[2];
 	    unvisited[2] = unvisited[k];
 	    unvisited[k] = tmp2;
-	    }*/
+	  }
+	*/
 	  solve_wsp_serial(unvisited[1], adj[start_city][unvisited[1]], unvisited,
 			   &unvisited[2], ncities - 2, solution);
 	}

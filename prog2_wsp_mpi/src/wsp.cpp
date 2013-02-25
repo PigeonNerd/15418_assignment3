@@ -73,13 +73,36 @@ static void init_mpi_solution_type() {
 }
 
 void run_master(){
+  int index;
+  solution_t best_solution;
+  solution_t solution;
 
+  for (index = 0; index < ncities; index++){
+    MPI_Recv (&solution, MSGSIZE, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG,
+	      MPI_COMM_WORLD, &status);
 
+    switch (status.MPI_TAG) {
+    case GET_TREE_TAG:
+      MPI_Send (&index, MSGSIZE, MPI_INT, status.MPI_SOURCE,
+		REPLY_PATH_TAG, MPI_COMM_WORLD);
+
+      break;
+
+    case BEST_PATH_TAG:
+      if (solution->distance < best_solution->distance) {
+	//update best solution, put some lock
+      }
+      break;
+    }
+  }
 }
 
-void run_worker(){
+void run_worker(solution_t greedy_solution){
 
-
+  while (1) {
+    MPI_Send (&greedy_solution, MSGSIZE, mpi_solution_type, MPI_ANY_SOURCE,
+	      MPI_ANY_TAG, MPI_COMM_WORLD);
+  }
 }
 
 void solve_wsp(solution_t *solution) {
@@ -88,6 +111,10 @@ void solve_wsp(solution_t *solution) {
   int err = MPI_Barrier(MPI_COMM_WORLD);
 
   assert(err == MPI_SUCCESS);
+
+  if (procId == 0) {
+    run_master();
+  }
 
   //if (procId == 0) {
     /*
@@ -99,8 +126,8 @@ void solve_wsp(solution_t *solution) {
     for(u = 0; u < 12; u ++){
         printf("Thread %d got iteration %d\n", procId, u);
     }
-    
-    
+
+
     unsigned char unvisited[MAX_N];
     size_t start_city;
     /*
@@ -129,7 +156,7 @@ void solve_wsp(solution_t *solution) {
   //  err =
   //    MPI_Recv(solution, 1, mpi_solution_type, 0, 0, MPI_COMM_WORLD, &status);
   //  assert(err == MPI_SUCCESS);
-    /* 
+    /*
      * The status object contains information about the request, including the
      * sender. In this case, it really should be the master since nobody else
      * is sending anything.

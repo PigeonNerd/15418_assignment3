@@ -19,7 +19,7 @@ extern size_t ncities;
 
 /* The adjacency matrix of the graph. adj[i][j] is the distance from i to j. */
 extern int adj[MAX_N][MAX_N];
-
+extern int shortestEdge;
 /*
  * Solves WSP from the current city with the current distance traveled,
  * and the provided set of unvisited nodes.
@@ -67,28 +67,33 @@ OA   */
       }
       unvisited[0] = start_city;
       unvisited[start_city] = 0;
-      //printf("1 start as [%d, %d, %d, %d]\n",unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
+   //printf("Thread %d got iteration %d ------1 start as [%d, %d, %d, %d]\n",omp_get_thread_num(), start_city, unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
 #pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic,1)
-      for(size_t i = 1; i < ncities; i ++){
+   for(size_t i = 1; i < ncities; i ++){
 	if(i != 1){
 	  int tmp = unvisited[1];
 	  unvisited[1] = unvisited[i];
 	  unvisited[i] = tmp;
 	}
-	//printf("Thread %d got iterarion %d ------2 start as [%d, %d, %d, %d]\n", omp_get_thread_num(), i,unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
-	/*
-#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic)
-	for(size_t k = 1; k < ncities; k++) {
-	  if (k != 1 && k!=2) {
+	//printf("               Thread %d got iterarion %d ------2 start as [%d, %d, %d, %d]\n", omp_get_thread_num(), i,unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
+	
+//#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic, 1)
+	for(size_t k = 2; k < ncities; k++) {
+	  if (k!=2) {
 	    int tmp2 = unvisited[2];
 	    unvisited[2] = unvisited[k];
 	    unvisited[k] = tmp2;
 	  }
-	*/
-	  solve_wsp_serial(unvisited[1], adj[start_city][unvisited[1]], unvisited,
-			   &unvisited[2], ncities - 2, solution);
-	}
-      /*
+	//printf("                                   Thread %d got iterarion %d ------2 start as [%d, %d, %d, %d]\n", omp_get_thread_num(), k, unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
+    
+    int current_dist = adj[start_city][unvisited[1]] + adj[unvisited[1]][unvisited[2]];
+	if(current_dist + shortestEdge < solution->distance){
+        solve_wsp_serial(unvisited[2], current_dist, unvisited,
+			   &unvisited[3], ncities - 3, solution);
+      }
+    }
+  }
+    /*
       #pragma omp critical
       {
       // printf("Thread %d got iteration %lu with distance %d\n", omp_get_thread_num(), start_city, localSolution.distance);

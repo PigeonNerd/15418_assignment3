@@ -43,7 +43,7 @@ extern int adj[MAX_N][MAX_N];
 void solve_wsp_serial(size_t current_city, int current_distance,
                       unsigned char *current_route,
                       unsigned char *unvisited, size_t num_unvisited,
-                      solution_t *best_solution);
+                      solution_t *best_solution, MPI_Datatype mpi_solution_type);
 
 /* Approximates a solution to the wsp and loads it into solution. */
 void approx_wsp_greedy(solution_t *solution);
@@ -79,45 +79,52 @@ void solve_wsp(solution_t *solution) {
 
   assert(err == MPI_SUCCESS);
 
-  if (procId == 0) {
+  //if (procId == 0) {
     /*
      * Approximate with a greedy solution first so we start with a reasonably
      * tight bound.
      */
     approx_wsp_greedy(solution);
-
+    int u;
+    for(u = 0; u < 12; u ++){
+        printf("Thread %d got iteration %d\n", procId, u);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    
+    
     unsigned char unvisited[MAX_N];
     size_t start_city;
     /*
      * We never start at city 0 - any path starting with 0 will be equivalent to
      * another path passing through 0.
      */
-    for (start_city = 1; start_city < ncities; start_city++) {
-      for (size_t i = 0; i < ncities; i++) {
+    for (start_city = 1; start_city + procId < ncities; start_city += procs) {
+      printf("Thread %d got iteration %d\n", procId,(int)start_city + procId);
+        for (size_t i = 0; i < ncities; i++) {
         unvisited[i] = i;
       }
-      unvisited[0] = start_city;
+      unvisited[0] = start_city + procId;
       unvisited[start_city] = 0;
       solve_wsp_serial(start_city, 0, unvisited,
-                       &unvisited[1], ncities - 1, solution);
+                       &unvisited[1], ncities - 1, solution, mpi_solution_type);
     }
-
+    MPI_Barrier(MPI_COMM_WORLD);
     /* Tell all the other processors the answer. */
-    size_t i;
-    for (i = 1; i < procs; i++) {
-      err = MPI_Send(solution, 1, mpi_solution_type, i, 0, MPI_COMM_WORLD);
-      assert(err == MPI_SUCCESS);
-    }
-  } else {
-    MPI_Status status;
-    err =
-      MPI_Recv(solution, 1, mpi_solution_type, 0, 0, MPI_COMM_WORLD, &status);
-    assert(err == MPI_SUCCESS);
+   // size_t i;
+   // for (i = 1; i < procs; i++) {
+   //   err = MPI_Send(solution, 1, mpi_solution_type, i, 0, MPI_COMM_WORLD);
+   //   assert(err == MPI_SUCCESS);
+   // }
+  //} else {
+  //  MPI_Status status;
+  //  err =
+  //    MPI_Recv(solution, 1, mpi_solution_type, 0, 0, MPI_COMM_WORLD, &status);
+  //  assert(err == MPI_SUCCESS);
     /* 
      * The status object contains information about the request, including the
      * sender. In this case, it really should be the master since nobody else
      * is sending anything.
      */
-    assert(status.MPI_SOURCE == 0);
-  }
+    //assert(status.MPI_SOURCE == 0);
+  //}
 }

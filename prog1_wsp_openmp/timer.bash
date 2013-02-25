@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Modify these if you want.
-num_threads = 8
+num_threads=6
 
 # These things should stay the same.
 num_cities=17

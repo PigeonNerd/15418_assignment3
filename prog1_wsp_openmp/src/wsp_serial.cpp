@@ -94,8 +94,8 @@ void solve_wsp_serial(size_t current_city, int current_distance,
                       unsigned char *unvisited, size_t num_unvisited,
                       solution_t *general_solution) {
   if (num_unvisited == 0) {
-    //printf("--------------------------3 finish as  [%d, %d, %d, %d], distance: %d\n", current_route[0],current_route[1], 
-                                                                //current_route[2], current_route[3], general_solution->distance); 
+    //printf("--------------------------3 finish as  [%d, %d, %d, %d], distance: %d\n", current_route[0],current_route[1],
+                                                                //current_route[2], current_route[3], general_solution->distance);
     /*
      * If there are no more cities left unvisited, update the global best
      * solution if appropriate.

@@ -35,6 +35,7 @@ static int approx_wsp_greedy_unvisited(size_t start,
   int local_min = INT_MAX;
   size_t local_min_i = 0;
   size_t i;
+
   for (i = 0; i < num_unvisited; i++) {
     size_t next_city = unvisited[i];
 
@@ -60,6 +61,8 @@ static int approx_wsp_greedy_unvisited(size_t start,
 
 void approx_wsp_greedy(solution_t *solution) {
   size_t i;
+
+#pragma omp parallel for default(shared) private(i)
   for (i = 0; i < ncities; i++) {
     solution->path[i] = i;
   }

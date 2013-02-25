@@ -76,8 +76,9 @@ OA   */
 	  unvisited[i] = tmp;
 	}
 	//printf("               Thread %d got iterarion %d ------2 start as [%d, %d, %d, %d]\n", omp_get_thread_num(), i,unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
-	
+
 //#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic, 1)
+
 	for(size_t k = 2; k < ncities; k++) {
 	  if (k!=2) {
 	    int tmp2 = unvisited[2];
@@ -85,9 +86,9 @@ OA   */
 	    unvisited[k] = tmp2;
 	  }
 	//printf("                                   Thread %d got iterarion %d ------2 start as [%d, %d, %d, %d]\n", omp_get_thread_num(), k, unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
-    
+
     int current_dist = adj[start_city][unvisited[1]] + adj[unvisited[1]][unvisited[2]];
-	if(current_dist + shortestEdge < solution->distance){
+    if(current_dist + shortestEdge * (ncities - 3) < solution->distance){
         solve_wsp_serial(unvisited[2], current_dist, unvisited,
 			   &unvisited[3], ncities - 3, solution);
       }

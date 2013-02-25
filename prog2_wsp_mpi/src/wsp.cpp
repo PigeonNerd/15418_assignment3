@@ -72,6 +72,16 @@ static void init_mpi_solution_type() {
   assert(mpi_struct_size == sizeof(solution_t));
 }
 
+void run_master(){
+
+
+}
+
+void run_worker(){
+
+
+}
+
 void solve_wsp(solution_t *solution) {
   init_mpi_solution_type();
   /* Make sure all cores initialize the type before proceeding. */
@@ -89,7 +99,6 @@ void solve_wsp(solution_t *solution) {
     for(u = 0; u < 12; u ++){
         printf("Thread %d got iteration %d\n", procId, u);
     }
-    MPI_Barrier(MPI_COMM_WORLD);
     
     
     unsigned char unvisited[MAX_N];

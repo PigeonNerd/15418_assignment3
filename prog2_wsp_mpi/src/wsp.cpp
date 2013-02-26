@@ -7,6 +7,11 @@
 
 #include "./wsp.h"
 
+#define GET_TREE_TAG 1
+#define PUT_BEST_SOLUTION_TAG 2
+#define REPLY_TREE_TAG 3
+#define DIE_TAG 4
+
 /* The number of processors in use. */
 extern size_t procs;
 
@@ -72,95 +77,106 @@ static void init_mpi_solution_type() {
   assert(mpi_struct_size == sizeof(solution_t));
 }
 
-void run_master(){
-  int index;
-  solution_t best_solution;
+void run_master(solution_t* best_solution){
+  unsigned char unvisited[MAX_N];
   solution_t solution;
-
-  for (index = 0; index < ncities; index++){
-    MPI_Recv (&solution, MSGSIZE, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG,
+  MPI_Status status;
+  int numWorkers = procs - 1;
+  int start_city = 1;
+  int secondLevel = 0;
+  //printf("master is running\n");
+  while(1){
+    MPI_Recv (&solution, 1, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG,
 	      MPI_COMM_WORLD, &status);
-
     switch (status.MPI_TAG) {
     case GET_TREE_TAG:
-      MPI_Send (&index, MSGSIZE, MPI_INT, status.MPI_SOURCE,
-		REPLY_PATH_TAG, MPI_COMM_WORLD);
-
+    //printf("master recieves request from %d\n", status.MPI_SOURCE);
+     if(start_city < (int)ncities){
+        for (size_t i = 0; i < ncities; i++) {
+             unvisited[i] = i;
+        }
+        unvisited[0] = start_city;
+        unvisited[start_city] = 0;
+        if(secondLevel != start_city){
+           int tmp = unvisited[1];
+           unvisited[1] = unvisited[secondLevel];
+           unvisited[secondLevel] = tmp;
+        }
+        MPI_Send (unvisited, MAX_N, MPI_CHARACTER, status.MPI_SOURCE,
+		        REPLY_TREE_TAG, MPI_COMM_WORLD);
+        secondLevel ++;
+        if (secondLevel == (int)ncities){
+             secondLevel = 0;
+             start_city++;
+           }
+        }
+     else{
+        // here we run out of job
+        // so we let this worker die
+        //printf("worker %d done its job\n", status.MPI_SOURCE);
+        numWorkers --;
+        MPI_Send (unvisited, 1, MPI_INT, status.MPI_SOURCE,
+		                DIE_TAG, MPI_COMM_WORLD);
+        if( numWorkers == 0){
+            size_t i;
+            for(i = 1; i < procs ; i++){
+                MPI_Send (best_solution, 1, mpi_solution_type, i,
+		                DIE_TAG, MPI_COMM_WORLD);
+            }
+            return;
+        }
+     }
       break;
-
-    case BEST_PATH_TAG:
-      if (solution->distance < best_solution->distance) {
-	//update best solution, put some lock
+    case PUT_BEST_SOLUTION_TAG:
+      //printf("master recieves update best solution\n");
+      if (solution.distance < best_solution->distance) {
+	        //update best solution, put some lock
+            best_solution->distance = solution.distance;
+            memcpy(best_solution->path, solution.path, MAX_N);
       }
       break;
     }
   }
 }
 
-void run_worker(solution_t greedy_solution){
-
+void run_worker(solution_t* best_solution){
+  unsigned char unvisited[MAX_N];
+  MPI_Status status;
+  int start_city;
+  //printf("worker %d starts to run\n", procId);
   while (1) {
-    MPI_Send (&greedy_solution, MSGSIZE, mpi_solution_type, MPI_ANY_SOURCE,
-	      MPI_ANY_TAG, MPI_COMM_WORLD);
+    //printf("worker %d sends GET_TREE_MESSAGE\n", procId);
+    MPI_Send (best_solution, 1, mpi_solution_type, 0,
+	      GET_TREE_TAG, MPI_COMM_WORLD);
+    MPI_Recv(unvisited, MAX_N, MPI_CHARACTER, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
+    switch(status.MPI_TAG){
+        case REPLY_TREE_TAG:
+            //printf("worker %d receives work [%d, %d, %d, %d]\n", procId, unvisited[0],unvisited[1],unvisited[2],unvisited[4]);
+            //unvisited[0] = start_city;
+            //unvisited[start_city] = 0;
+            solve_wsp_serial(unvisited[1], adj[unvisited[0]][unvisited[1]], unvisited,
+                       &unvisited[2], ncities - 2, best_solution, mpi_solution_type);
+            break;
+        case DIE_TAG:
+            //printf("worker %d recieves die and wait\n", procId);
+            MPI_Recv(best_solution, 1, mpi_solution_type, 0, DIE_TAG, MPI_COMM_WORLD, &status);   
+            //printf("Thread %d returns\n", procId);
+            return;
+    }
   }
 }
 
 void solve_wsp(solution_t *solution) {
+  approx_wsp_greedy(solution);
   init_mpi_solution_type();
   /* Make sure all cores initialize the type before proceeding. */
   int err = MPI_Barrier(MPI_COMM_WORLD);
-
   assert(err == MPI_SUCCESS);
 
   if (procId == 0) {
-    run_master();
+    run_master(solution);
+  }else{
+    run_worker(solution);
   }
-
-  //if (procId == 0) {
-    /*
-     * Approximate with a greedy solution first so we start with a reasonably
-     * tight bound.
-     */
-    approx_wsp_greedy(solution);
-    int u;
-    for(u = 0; u < 12; u ++){
-        printf("Thread %d got iteration %d\n", procId, u);
-    }
-
-
-    unsigned char unvisited[MAX_N];
-    size_t start_city;
-    /*
-     * We never start at city 0 - any path starting with 0 will be equivalent to
-     * another path passing through 0.
-     */
-    for (start_city = 1; start_city + procId < ncities; start_city += procs) {
-      printf("Thread %d got iteration %d\n", procId,(int)start_city + procId);
-        for (size_t i = 0; i < ncities; i++) {
-        unvisited[i] = i;
-      }
-      unvisited[0] = start_city + procId;
-      unvisited[start_city] = 0;
-      solve_wsp_serial(start_city, 0, unvisited,
-                       &unvisited[1], ncities - 1, solution, mpi_solution_type);
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-    /* Tell all the other processors the answer. */
-   // size_t i;
-   // for (i = 1; i < procs; i++) {
-   //   err = MPI_Send(solution, 1, mpi_solution_type, i, 0, MPI_COMM_WORLD);
-   //   assert(err == MPI_SUCCESS);
-   // }
-  //} else {
-  //  MPI_Status status;
-  //  err =
-  //    MPI_Recv(solution, 1, mpi_solution_type, 0, 0, MPI_COMM_WORLD, &status);
-  //  assert(err == MPI_SUCCESS);
-    /*
-     * The status object contains information about the request, including the
-     * sender. In this case, it really should be the master since nobody else
-     * is sending anything.
-     */
-    //assert(status.MPI_SOURCE == 0);
-  //}
+  //printf("THERAD %d finishes\n", procId);
 }

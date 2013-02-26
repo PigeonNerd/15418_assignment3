@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "./wsp.h"
-
+#define PUT_BEST_SOLUTION_TAG 2 
 /* The number of processors in use. */
 extern size_t procs;
 
@@ -106,9 +106,11 @@ void solve_wsp_serial(size_t current_city, int current_distance,
      * solution if appropriate.
      */
     if (current_distance < best_solution->distance) {
+      MPI_Request request;
       best_solution->distance = current_distance;
       memcpy(best_solution->path, current_route, ncities);
-      MPI_Bcast(best_solution, 1, mpi_solution_type, procId, MPI_COMM_WORLD);
+      //printf("Thread %d sends best solution to master\n", procId);
+      MPI_Isend(best_solution, 1, mpi_solution_type, 0, PUT_BEST_SOLUTION_TAG, MPI_COMM_WORLD, &request);
     }
     return;
   }

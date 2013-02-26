@@ -78,50 +78,66 @@ static void init_mpi_solution_type() {
 }
 
 void run_master(solution_t* best_solution){
-  unsigned char unvisited[MAX_N];
   solution_t solution;
+  solution_t toSend;
   MPI_Status status;
+  MPI_Request sendRequest = MPI_REQUEST_NULL;
+  MPI_Status sendStatus;
+
   int numWorkers = procs - 1;
   int start_city = 1;
-  int secondLevel = 0;
+  int secondLevel = 1;
+  int thirdLevel = 2;
   //printf("master is running\n");
   while(1){
     MPI_Recv (&solution, 1, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG,
 	      MPI_COMM_WORLD, &status);
     switch (status.MPI_TAG) {
     case GET_TREE_TAG:
-    //printf("master recieves request from %d\n", status.MPI_SOURCE);
      if(start_city < (int)ncities){
+        MPI_Wait(&sendRequest, &sendStatus);
         for (size_t i = 0; i < ncities; i++) {
-             unvisited[i] = i;
+             toSend.path[i] = i;
         }
-        unvisited[0] = start_city;
-        unvisited[start_city] = 0;
-        if(secondLevel != start_city){
-           int tmp = unvisited[1];
-           unvisited[1] = unvisited[secondLevel];
-           unvisited[secondLevel] = tmp;
+        toSend.path[0] = start_city;
+        toSend.path[start_city] = 0;
+        if(secondLevel != 1){
+           int tmp = toSend.path[1];
+           toSend.path[1] = toSend.path[secondLevel];
+           toSend.path[secondLevel] = tmp;
         }
-        MPI_Send (unvisited, MAX_N, MPI_CHARACTER, status.MPI_SOURCE,
-		        REPLY_TREE_TAG, MPI_COMM_WORLD);
-        secondLevel ++;
-        if (secondLevel == (int)ncities){
-             secondLevel = 0;
-             start_city++;
-           }
+        if(thirdLevel != 2){
+            int tmp = toSend.path[2];
+            toSend.path[2] = toSend.path[thirdLevel];
+            toSend.path[thirdLevel] = tmp;
+        }
+        toSend.distance = best_solution->distance;
+        //printf("master assign [%d, %d, %d, %d] to worker %d\n", solution.path[0], solution.path[1], solution.path[2], solution.path[3], status.MPI_SOURCE);
+        MPI_Isend (&toSend, 1, mpi_solution_type, status.MPI_SOURCE,
+		        REPLY_TREE_TAG, MPI_COMM_WORLD, &sendRequest);
+        thirdLevel ++;
+        if (thirdLevel == (int)ncities){
+             thirdLevel = 2;
+              secondLevel ++;
+            if(secondLevel == (int) ncities){
+                secondLevel = 1;
+                start_city++;
+                }
+            }
         }
      else{
         // here we run out of job
         // so we let this worker die
         //printf("worker %d done its job\n", status.MPI_SOURCE);
-        numWorkers --;
-        MPI_Send (unvisited, 1, MPI_INT, status.MPI_SOURCE,
-		                DIE_TAG, MPI_COMM_WORLD);
+        MPI_Request request;
+        numWorkers--;
+        MPI_Isend (&solution, 1, mpi_solution_type, status.MPI_SOURCE,
+		                DIE_TAG, MPI_COMM_WORLD, &request);
         if( numWorkers == 0){
             size_t i;
             for(i = 1; i < procs ; i++){
-                MPI_Send (best_solution, 1, mpi_solution_type, i,
-		                DIE_TAG, MPI_COMM_WORLD);
+                MPI_Isend (best_solution, 1, mpi_solution_type, i,
+		                DIE_TAG, MPI_COMM_WORLD, &request);
             }
             return;
         }
@@ -140,22 +156,22 @@ void run_master(solution_t* best_solution){
 }
 
 void run_worker(solution_t* best_solution){
-  unsigned char unvisited[MAX_N];
   MPI_Status status;
-  int start_city;
+  solution_t solution;
   //printf("worker %d starts to run\n", procId);
   while (1) {
     //printf("worker %d sends GET_TREE_MESSAGE\n", procId);
     MPI_Send (best_solution, 1, mpi_solution_type, 0,
 	      GET_TREE_TAG, MPI_COMM_WORLD);
-    MPI_Recv(unvisited, MAX_N, MPI_CHARACTER, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
+    MPI_Recv(&solution, 1, mpi_solution_type, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
     switch(status.MPI_TAG){
         case REPLY_TREE_TAG:
-            //printf("worker %d receives work [%d, %d, %d, %d]\n", procId, unvisited[0],unvisited[1],unvisited[2],unvisited[4]);
-            //unvisited[0] = start_city;
-            //unvisited[start_city] = 0;
-            solve_wsp_serial(unvisited[1], adj[unvisited[0]][unvisited[1]], unvisited,
-                       &unvisited[2], ncities - 2, best_solution, mpi_solution_type);
+            best_solution->distance = solution.distance;
+            //printf("worker %d receives work [%d, %d, %d, %d]\n", procId, solution.path[0], solution.path[1], solution.path[2], solution.path[3]);
+            //solve_wsp_serial(solution.path[1], adj[solution.path[0]][solution.path[1]], solution.path,
+           //            &solution.path[2], ncities - 2, best_solution, mpi_solution_type);
+            solve_wsp_serial(solution.path[2], adj[solution.path[0]][solution.path[1]] + adj[solution.path[1]][solution.path[2]], solution.path,
+                       &solution.path[3], ncities - 3, best_solution, mpi_solution_type);
             break;
         case DIE_TAG:
             //printf("worker %d recieves die and wait\n", procId);

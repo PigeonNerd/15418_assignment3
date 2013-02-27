@@ -68,7 +68,7 @@ OA   */
       unvisited[0] = start_city;
       unvisited[start_city] = 0;
    //printf("Thread %d got iteration %d ------1 start as [%d, %d, %d, %d]\n",omp_get_thread_num(), start_city, unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
-#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic,1)
+      //#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic,1)
    for(size_t i = 1; i < ncities; i ++){
 	if(i != 1){
 	  int tmp = unvisited[1];
@@ -77,7 +77,7 @@ OA   */
 	}
 	//printf("               Thread %d got iterarion %d ------2 start as [%d, %d, %d, %d]\n", omp_get_thread_num(), i,unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
 
-//#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic, 1)
+#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic, 1)
 
 	for(size_t k = 2; k < ncities; k++) {
 	  if (k!=2) {

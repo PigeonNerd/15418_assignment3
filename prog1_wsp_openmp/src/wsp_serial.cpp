@@ -94,15 +94,15 @@ void approx_wsp_greedy(solution_t *solution) {
 void solve_wsp_serial(size_t current_city, int current_distance,
                       unsigned char *current_route,
                       unsigned char *unvisited, size_t num_unvisited,
-                      solution_t *general_solution) {
+                      solution_t *general_solution, solution_t* local_solution) {
 
   if (num_unvisited == 0) {
 
     if (current_distance < general_solution->distance) {
       #pragma omp critical
       {
-	general_solution->distance = current_distance;
-	memcpy(general_solution->path, current_route, ncities);
+	    general_solution->distance = current_distance;
+	    memcpy(local_solution->path, current_route, ncities);
       }
     }
     return;
@@ -132,7 +132,7 @@ void solve_wsp_serial(size_t current_city, int current_distance,
     unvisited[i] = unvisited[0];
     unvisited[0] = next_city;
     solve_wsp_serial(next_city, next_dist, current_route,
-                     &unvisited[1], num_unvisited - 1, general_solution);
+                     &unvisited[1], num_unvisited - 1, general_solution, local_solution);
     /* Restore unvisited to its former state. */
     unvisited[0] = unvisited[i];
     unvisited[i] = next_city;

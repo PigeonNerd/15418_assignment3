@@ -243,9 +243,44 @@ void solve_wsp_normal(solution_t *solution) {
     assert(status.MPI_SOURCE == 0);
   }
 }
+void solve_wsp1(solution_t* solution){
+    
+  init_mpi_solution_type();
+  /* Make sure all cores initialize the type before proceeding. */
+  int err = MPI_Barrier(MPI_COMM_WORLD);
+
+  assert(err == MPI_SUCCESS);
+  /*
+   * Approximate with a greedy solution first so we start with a reasonably
+   * tight bound.
+  */
+  approx_wsp_greedy(solution);
+  unsigned char unvisited[MAX_N];
+  size_t start_city;
+  size_t secondLevel;
+  size_t thirdLevel;
+  int tmp;
+  for (start_city = 1; start_city < ncities; start_city++ ) {
+        for(size_t i = 0 ; i < ncities; i++){
+            unvisited[i] = i;
+        }
+        unvisited[0] = start_city;
+        unvisited[start_city] = 0;
+    for(secondLevel = 1; secondLevel + procId < ncities; secondLevel += procs){
+            tmp = unvisited[1];
+            unvisited[1] = unvisited[secondLevel + procId];
+            unvisited[secondLevel + procId] = tmp;
+            printf("THRED %d [%d, %d, %d, %d]\n", procId, unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
+     // solve_wsp_serial(unvisited[1], adj[unvisited[0]][unvisited[1]], unvisited,
+       //                &unvisited[2], ncities - 2, solution, mpi_solution_type);
+        }
+    }
+}
 
 void solve_wsp(solution_t *solution) {
-  if(procs == 1){
+    //solve_wsp1(solution);  
+    //MPI_Barrier(MPI_COMM_WORLD);
+    if(procs == 1){
     solve_wsp_normal(solution);
   }else{
   approx_wsp_greedy(solution);

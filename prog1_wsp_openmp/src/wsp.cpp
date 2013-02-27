@@ -58,6 +58,56 @@ OA   */
     /* The iterations of the for loop will be split up accross all threads. */
     omp_set_nested(1);
 
+    int level = 1;
+    size_t num_cities = ncities - 1;
+    size_t totalTasks = (ncities - 1) * (ncities - 1);
+
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t taskId = 0; taskId < totalTasks; taskId++) {
+
+      //      printf("Task ID = %zd ........\n", taskId);
+      size_t parentIndex = (taskId / num_cities) + level;
+      size_t childIndex = (taskId % num_cities) + level;
+
+      //printf("Parent Index is %zd and child index is %zd\n", parentIndex, childIndex);
+      //int distance = adj[parent][child];
+      //if (distance < solution->distance) {
+      unsigned char unvisited[MAX_N];
+      for (size_t i = 0; i < ncities; i++) {
+	unvisited[i] = i;
+      }
+
+      size_t tmpP = unvisited[parentIndex];
+
+      //printf("Parent city %zd is switching with city %zd\n", tmpP, unvisited[0]);
+      //      printf("Child city %zd is switching with city %zd\n\n\n", tmpC, unvisited[1]);
+
+      unvisited[parentIndex] = unvisited[0];
+      unvisited[0] = tmpP;
+
+      size_t tmpC = unvisited[childIndex];
+
+      //printf("Child city is %zd is switching with city %zd\n\n\n", tmpC, unvisited[1]);
+      unvisited[childIndex] = unvisited[1];
+      unvisited[1] = tmpC;
+
+      size_t parent = unvisited[0];
+      size_t child = unvisited[1];
+
+      //      printf("We are looking at parent %zd and child %zd\n", parent, child);
+
+      if ((adj[parent][child] + shortestEdge * (ncities-2)) < solution->distance) {
+	solve_wsp_serial(unvisited[1], adj[parent][child], unvisited,
+			 &unvisited[2], ncities - 2, solution);
+      }
+    }
+}
+
+
+
+
+
+    /*
 #pragma omp parallel for default(shared) schedule(dynamic,1)
     for (size_t start_city = 1; start_city < ncities; start_city++) {
 
@@ -89,7 +139,7 @@ OA   */
 	    solve_wsp_serial(unvisited[2], current_dist, unvisited,
 			     &unvisited[3], ncities - 3, solution);
 	  }
-
+    */
 	  /*
 	  if (localSolution.distance < solution->distance) {
 #pragma omp critical
@@ -100,7 +150,3 @@ OA   */
 	    }
 	  }
 	  */
-	}
-      }
-    }
-}

@@ -97,18 +97,12 @@ void solve_wsp_serial(size_t current_city, int current_distance,
                       solution_t *general_solution) {
 
   if (num_unvisited == 0) {
-    //printf("--------------------------3 finish as  [%d, %d, %d, %d], distance: %d\n", current_route[0],current_route[1],
-                                                                //current_route[2], current_route[3], general_solution->distance);
-    /*
-     * If there are no more cities left unvisited, update the global best
-     * solution if appropriate.
-     */
+
+    if (current_distance < general_solution->distance) {
       #pragma omp critical
       {
-    if (current_distance < general_solution->distance) {
-      //printf("I got %d\n", current_distance);
-	    general_solution->distance = current_distance;
-	    memcpy(general_solution->path, current_route, ncities);
+	general_solution->distance = current_distance;
+	memcpy(general_solution->path, current_route, ncities);
       }
     }
     return;
@@ -128,7 +122,7 @@ void solve_wsp_serial(size_t current_city, int current_distance,
      */
     if (next_dist + shortestEdge * (num_unvisited_i - 1) >=
         general_solution->distance) {
-        continue;
+      continue;
     }
     /*
      * Mark next_city as unvisited by moving it to the front of the list and

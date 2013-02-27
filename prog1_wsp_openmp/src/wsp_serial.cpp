@@ -62,7 +62,6 @@ static int approx_wsp_greedy_unvisited(size_t start,
 void approx_wsp_greedy(solution_t *solution) {
   size_t i;
 
-#pragma omp parallel for default(shared) private(i)
   for (i = 0; i < ncities; i++) {
     solution->path[i] = i;
   }
@@ -104,12 +103,12 @@ void solve_wsp_serial(size_t current_city, int current_distance,
      * If there are no more cities left unvisited, update the global best
      * solution if appropriate.
      */
-    if (current_distance < general_solution->distance) {
-      //printf("I got %d\n", current_distance);
       #pragma omp critical
       {
-	general_solution->distance = current_distance;
-	memcpy(general_solution->path, current_route, ncities);
+    if (current_distance < general_solution->distance) {
+      //printf("I got %d\n", current_distance);
+	    general_solution->distance = current_distance;
+	    memcpy(general_solution->path, current_route, ncities);
       }
     }
     return;

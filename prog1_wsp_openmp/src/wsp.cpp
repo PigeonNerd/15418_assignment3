@@ -57,7 +57,7 @@ OA   */
     approx_wsp_greedy(solution);
     /* The iterations of the for loop will be split up accross all threads. */
     omp_set_nested(1);
-//#pragma omp parallel for default(shared) schedule(dynamic,1)
+#pragma omp parallel for default(shared) schedule(dynamic,1)
  for (size_t start_city = 1; start_city < ncities; start_city++) {
 
       unsigned char unvisited[MAX_N];
@@ -67,7 +67,7 @@ OA   */
       }
       unvisited[0] = start_city;
       unvisited[start_city] = 0;
-   //printf("Thread %d got iteration %d ------1 start as [%d, %d, %d, %d]\n",omp_get_thread_num(), start_city, unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
+//printf("Thread %d got iteration %d ------1 start as [%d, %d, %d, %d]\n",omp_get_thread_num(), start_city, unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
 //#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic,1)
    for(size_t i = 1; i < ncities; i ++){
 	if(i != 1){
@@ -76,7 +76,7 @@ OA   */
 	  unvisited[i] = tmp;
 	}
 	//printf("               Thread %d got iterarion %d ------2 start as [%d, %d, %d, %d]\n", omp_get_thread_num(), i,unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
-//#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic, 1)
+#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic, 1)
 	for(size_t k = 2; k < ncities; k++) {
 	 if (k!=2) {
 	   int tmp2 = unvisited[2];
@@ -84,20 +84,12 @@ OA   */
 	   unvisited[k] = tmp2;
 	  }
 	//printf("                                   Thread %d got iterarion %d ------2 start as [%d, %d, %d, %d]\n", omp_get_thread_num(), k, unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
-//#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic, 1)
-    for(size_t p = 3; p < ncities; p++){
-      if(p != 3){
-         int tmp = unvisited[3];
-         unvisited[3] = unvisited[p];
-         unvisited[p] = tmp;
-     }
-	printf("Thread %d got iterarion %d ------ [%d, %d, %d, %d]\n", omp_get_thread_num(), p,unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
-     int current_dist = adj[start_city][unvisited[1]] + adj[unvisited[1]][unvisited[2]] + adj[unvisited[2]][unvisited[3]];
-     if(current_dist + shortestEdge * (ncities - 4) < solution->distance){
-           solve_wsp_serial(unvisited[3], current_dist, unvisited,
-		      &unvisited[4], ncities - 4, solution);
+     int current_dist = adj[start_city][unvisited[1]] + adj[unvisited[1]][unvisited[2]];
+     if(current_dist + shortestEdge * (ncities - 3)< solution->distance){
+           solve_wsp_serial(unvisited[2], current_dist, unvisited,
+		      &unvisited[3], ncities - 3, solution);
       }
-    }
+    
       // printf("Thread %d got iteration %lu with distance %d\n", omp_get_thread_num(), start_city, localSolution.distance);
     }
   }

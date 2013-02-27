@@ -88,6 +88,7 @@ void run_master(solution_t* best_solution){
   int start_city = 1;
   int secondLevel = 1;
   int thirdLevel = 2;
+  int fourthLevel = 3;
   //printf("master is running\n");
   while(1){
     MPI_Recv (&solution, 1, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG,
@@ -111,11 +112,20 @@ void run_master(solution_t* best_solution){
             toSend.path[2] = toSend.path[thirdLevel];
             toSend.path[thirdLevel] = tmp;
         }
+        if(fourthLevel != 3){
+            int tmp = toSend.path[3];
+            toSend.path[3] = toSend.path[fourthLevel];
+            toSend.path[fourthLevel] = tmp;
+        }
+
         toSend.distance = best_solution->distance;
         //printf("master assign [%d, %d, %d, %d] to worker %d\n", solution.path[0], solution.path[1], solution.path[2], solution.path[3], status.MPI_SOURCE);
         MPI_Isend (&toSend, 1, mpi_solution_type, status.MPI_SOURCE,
 		        REPLY_TREE_TAG, MPI_COMM_WORLD, &sendRequest);
-        thirdLevel ++;
+        fourthLevel ++;
+        if(fourthLevel == (int)ncities){
+            fourthLevel = 3;
+            thirdLevel ++;
         if (thirdLevel == (int)ncities){
              thirdLevel = 2;
               secondLevel ++;
@@ -125,6 +135,8 @@ void run_master(solution_t* best_solution){
                 }
             }
         }
+     }
+     
      else{
         // here we run out of job
         // so we let this worker die
@@ -170,8 +182,8 @@ void run_worker(solution_t* best_solution){
             //printf("worker %d receives work [%d, %d, %d, %d]\n", procId, solution.path[0], solution.path[1], solution.path[2], solution.path[3]);
             //solve_wsp_serial(solution.path[1], adj[solution.path[0]][solution.path[1]], solution.path,
            //            &solution.path[2], ncities - 2, best_solution, mpi_solution_type);
-            solve_wsp_serial(solution.path[2], adj[solution.path[0]][solution.path[1]] + adj[solution.path[1]][solution.path[2]], solution.path,
-                       &solution.path[3], ncities - 3, best_solution, mpi_solution_type);
+            solve_wsp_serial(solution.path[3], adj[solution.path[0]][solution.path[1]] + adj[solution.path[1]][solution.path[2]] + adj[solution.path[2]][solution.path[3]] , solution.path,
+                       &solution.path[4], ncities - 4, best_solution, mpi_solution_type);
             break;
         case DIE_TAG:
             //printf("worker %d recieves die and wait\n", procId);
@@ -182,7 +194,60 @@ void run_worker(solution_t* best_solution){
   }
 }
 
+void solve_wsp_normal(solution_t *solution) {
+  init_mpi_solution_type();
+  /* Make sure all cores initialize the type before proceeding. */
+  int err = MPI_Barrier(MPI_COMM_WORLD);
+
+  assert(err == MPI_SUCCESS);
+
+  if (procId == 0) {
+    /*
+     * Approximate with a greedy solution first so we start with a reasonably
+     * tight bound.
+     */
+    approx_wsp_greedy(solution);
+
+    unsigned char unvisited[MAX_N];
+    size_t start_city;
+    /*
+     * We never start at city 0 - any path starting with 0 will be equivalent to
+     * another path passing through 0.
+     */
+    for (start_city = 1; start_city < ncities; start_city++) {
+      for (size_t i = 0; i < ncities; i++) {
+        unvisited[i] = i;
+      }
+      unvisited[0] = start_city;
+      unvisited[start_city] = 0;
+      solve_wsp_serial(start_city, 0, unvisited,
+                       &unvisited[1], ncities - 1, solution, mpi_solution_type);
+    }
+
+    /* Tell all the other processors the answer. */
+    size_t i;
+    for (i = 1; i < procs; i++) {
+      err = MPI_Send(solution, 1, mpi_solution_type, i, 0, MPI_COMM_WORLD);
+      assert(err == MPI_SUCCESS);
+    }
+  } else {
+    MPI_Status status;
+    err =
+      MPI_Recv(solution, 1, mpi_solution_type, 0, 0, MPI_COMM_WORLD, &status);
+    assert(err == MPI_SUCCESS);
+    /* 
+     * The status object contains information about the request, including the
+     * sender. In this case, it really should be the master since nobody else
+     * is sending anything.
+     */
+    assert(status.MPI_SOURCE == 0);
+  }
+}
+
 void solve_wsp(solution_t *solution) {
+  if(procs == 1){
+    solve_wsp_normal(solution);
+  }else{
   approx_wsp_greedy(solution);
   init_mpi_solution_type();
   /* Make sure all cores initialize the type before proceeding. */
@@ -195,4 +260,6 @@ void solve_wsp(solution_t *solution) {
     run_worker(solution);
   }
   //printf("THERAD %d finishes\n", procId);
+  }
 }
+

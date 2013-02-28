@@ -84,42 +84,16 @@ void run_master(solution_t* best_solution){
   MPI_Request sendRequest = MPI_REQUEST_NULL;
   MPI_Status sendStatus;
   int numWorkers = procs - 1;
-  int num_cities = ncities - 1;
   size_t totalTasks = (ncities -1) * (ncities -1) * (ncities - 2);// * (ncities - 3);
-  size_t taskId = 0;  
-  unsigned char unvisited[MAX_N];
-  for(size_t i = 0; i < ncities; i++){
-       unvisited[i] = i;
-   }
+  int taskId = 0;  
   while(1){
      MPI_Recv(&solution, 1, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
      switch(status.MPI_TAG){
       case GET_TREE_TAG:
         if( taskId < totalTasks ){
             MPI_Wait(&sendRequest, &sendStatus);
-            size_t parentIndex = (taskId / ((num_cities)*(num_cities -1) )) + 1;
-            size_t childIndex = (taskId  % num_cities) + 1;
-            size_t thirdLevel = (taskId  % (num_cities - 1)) + 2;
-            //size_t fourthLevel = (taskId % (num_cities - 2)) + 3;
-            
-            memcpy(toSend.path, unvisited, ncities);
-            
-            toSend.path[0] = parentIndex;
-            toSend.path[parentIndex] = 0;
-
-            size_t tmpC = toSend.path[childIndex];
-            toSend.path[childIndex] = toSend.path[1];
-            toSend.path[1] = tmpC;
-      
-            size_t tmpT = toSend.path[thirdLevel];
-            toSend.path[thirdLevel] = toSend.path[2];
-            toSend.path[2] = tmpT;
-    
-            //size_t tmpF = toSend.path[fourthLevel];
-            //toSend.path[fourthLevel] = toSend.path[3];
-            //toSend.path[3] = tmpF;
-
             toSend.distance = best_solution->distance;
+            memcpy(toSend.path, &taskId, 4);
             MPI_Isend (&toSend, 1, mpi_solution_type, status.MPI_SOURCE,
 		        REPLY_TREE_TAG, MPI_COMM_WORLD, &sendRequest);
             taskId ++;
@@ -131,17 +105,12 @@ void run_master(solution_t* best_solution){
             MPI_Isend (&solution, 1, mpi_solution_type, status.MPI_SOURCE,
 		                DIE_TAG, MPI_COMM_WORLD, &request);
             if( numWorkers == 0){
-                size_t i;
-                for(i = 1; i < procs ; i++){
-                    MPI_Isend (best_solution, 1, mpi_solution_type, i,
-		                    DIE_TAG, MPI_COMM_WORLD, &request);
-                    }
                 return;
             }
      }
       break;
     case PUT_BEST_SOLUTION_TAG:
-      //printf("master recieves update best solution\n");
+      //printf("master recieves update best solution %d\n", solution.distance);
       if (solution.distance < best_solution->distance) {
 	        //update best solution, put some lock
             best_solution->distance = solution.distance;
@@ -155,6 +124,13 @@ void run_master(solution_t* best_solution){
 void run_worker(solution_t* best_solution){
   MPI_Status status;
   solution_t solution;
+  unsigned char unvisited[MAX_N];
+  unsigned char init[MAX_N];
+  int num_cities = ncities - 1;
+  int taskId;
+  for(size_t i = 0 ; i < ncities; i ++) {
+    init[i] = i;
+  }
   //printf("worker %d starts to run\n", procId);
   while (1) {
     //printf("worker %d sends GET_TREE_MESSAGE\n", procId);
@@ -163,18 +139,43 @@ void run_worker(solution_t* best_solution){
     MPI_Recv(&solution, 1, mpi_solution_type, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
     switch(status.MPI_TAG){
         case REPLY_TREE_TAG:
+            {
+            taskId =*(int*)solution.path;
+            //memcpy(&taskId, solution.path, 4); 
+            //printf("THREAD %d got taskId %d\n", procId, taskId);
             best_solution->distance = solution.distance;
-            //printf("worker %d receives work [%d, %d, %d, %d]\n", procId, solution.path[0], solution.path[1], solution.path[2], solution.path[3]);
-            solve_wsp_serial(solution.path[2], adj[solution.path[0]][solution.path[1]] + adj[solution.path[1]][solution.path[2]],  solution.path,
-                       &solution.path[3], ncities - 3, best_solution, mpi_solution_type);
-            //solve_wsp_serial(solution.path[3], adj[solution.path[0]][solution.path[1]] + adj[solution.path[1]][solution.path[2]] + adj[solution.path[2]][solution.path[3]] , solution.path,
-              //         &solution.path[4], ncities - 4, best_solution, mpi_solution_type);
+            size_t parentIndex = (taskId / ((num_cities)*(num_cities -1) )) + 1;
+            size_t childIndex = (taskId  % num_cities) + 1;
+            size_t thirdLevel = (taskId  % (num_cities - 1)) + 2;
+            //size_t fourthLevel = (taskId % (num_cities - 2)) + 3;
+            memcpy(unvisited, init, ncities);
+            
+            unvisited[0] = parentIndex;
+            unvisited[parentIndex] = 0;
+
+            size_t tmpC = unvisited[childIndex];
+            unvisited[childIndex] = unvisited[1];
+            unvisited[1] = tmpC;
+      
+            size_t tmpT = unvisited[thirdLevel];
+            unvisited[thirdLevel] = unvisited[2];
+            unvisited[2] = tmpT;
+             
+            //printf("[%d, %d, %d, %d]\n", unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
+            //size_t tmpF = unvisited[fourthLevel];
+            //unvisited[fourthLevel] = unvisited[3];
+            //unvisited[3] = tmpF;
+            int curr_dist = adj[unvisited[0]][unvisited[1]] + adj[unvisited[1]][unvisited[2]];
+            solve_wsp_serial(unvisited[2], curr_dist, unvisited, &unvisited[3], ncities - 3, best_solution, mpi_solution_type);
+            }
             break;
+
         case DIE_TAG:
-            //printf("worker %d recieves die and wait\n", procId);
-            MPI_Recv(best_solution, 1, mpi_solution_type, 0, DIE_TAG, MPI_COMM_WORLD, &status);   
-            //printf("Thread %d returns\n", procId);
+            {
+            //MPI_Recv(best_solution, 1, mpi_solution_type, 0, DIE_TAG, MPI_COMM_WORLD, &status);   
+            //printf("Thread %d leaves with best dist %d\n", procId, best_solution->distance);
             return;
+            }
     }
   }
 }
@@ -186,7 +187,7 @@ void solve_wsp_normal(solution_t *solution) {
 
   assert(err == MPI_SUCCESS);
 
-  if (procId == 0) {
+  if (procId == procs -1) {
     /*
      * Approximate with a greedy solution first so we start with a reasonably
      * tight bound.
@@ -227,39 +228,6 @@ void solve_wsp_normal(solution_t *solution) {
      */
     assert(status.MPI_SOURCE == 0);
   }
-}
-void solve_wsp1(solution_t* solution){
-    
-  init_mpi_solution_type();
-  /* Make sure all cores initialize the type before proceeding. */
-  int err = MPI_Barrier(MPI_COMM_WORLD);
-
-  assert(err == MPI_SUCCESS);
-  /*
-   * Approximate with a greedy solution first so we start with a reasonably
-   * tight bound.
-  */
-  approx_wsp_greedy(solution);
-  unsigned char unvisited[MAX_N];
-  size_t start_city;
-  size_t secondLevel;
-  size_t thirdLevel;
-  int tmp;
-  for (start_city = 1; start_city < ncities; start_city++ ) {
-        for(size_t i = 0 ; i < ncities; i++){
-            unvisited[i] = i;
-        }
-        unvisited[0] = start_city;
-        unvisited[start_city] = 0;
-    for(secondLevel = 1; secondLevel + procId < ncities; secondLevel += procs){
-            tmp = unvisited[1];
-            unvisited[1] = unvisited[secondLevel + procId];
-            unvisited[secondLevel + procId] = tmp;
-            printf("THRED %d [%d, %d, %d, %d]\n", procId, unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
-     // solve_wsp_serial(unvisited[1], adj[unvisited[0]][unvisited[1]], unvisited,
-       //                &unvisited[2], ncities - 2, solution, mpi_solution_type);
-        }
-    }
 }
 
 void solve_wsp(solution_t *solution) {

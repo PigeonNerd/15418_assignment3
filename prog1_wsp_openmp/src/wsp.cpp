@@ -55,111 +55,73 @@ void solve_wsp(solution_t *solution) {
    * tight bound.
 OA */
     approx_wsp_greedy(solution);
-    /* The iterations of the for loop will be split up accross all threads. */
+
+    /* Traversing three levels of the tree before splitting into subtress. */
     int level = 3;
     size_t num_cities = ncities - 1;
+
+    /* Total number of subtrees we are creating */
     size_t totalTasks = (ncities - 1) * (ncities - 1) * (ncities - 2) * (ncities - 3);
     unsigned char unvisited[MAX_N];
     unsigned char init[MAX_N];
+
+    /* init is the intialized array that we will set
+       unvisited to at the start of every new subtree. */
 #pragma omp parallel for  schedule(dynamic)
     for (size_t i = 0; i < ncities; i++) {
       init[i] = i;
     }
 
+    /* Single for loop that assigns threads to all subtrees. */
 #pragma omp parallel for private(unvisited) schedule(dynamic, 1)
     for (size_t taskId = 0; taskId < totalTasks; taskId++) {
 
-      //printf("Task ID = %zd ........\n", taskId);
+      /* Based on the current task ID, grab the indices of the parent
+	 city, first child city, second child city, and third child
+	 city. These indices will be the index of each city in the
+	 initialized unvisited array. */
       size_t parentIndex = (taskId / ((num_cities)*(num_cities -1) * (num_cities -2))) + 1;
       size_t childIndex = (taskId  % num_cities) + 1;
       size_t thirdLevel = (taskId  % (num_cities - 1)) + 2;
       size_t fourthLevel = (taskId % (num_cities - 2)) + 3;
-      //printf("Parent Index is %zd, child index is %zd, third index is %zd \n", parentIndex, childIndex, thirdLevel);
 
+      /* Reset unvisited to the initialized values. */
       memcpy(unvisited, init, ncities);
 
-      //size_t tmpP = unvisited[parentIndex];
-      //unvisited[parentIndex] = unvisited[0];
-      //unvisited[0] = tmpP;
+      /* Swap the parent index with the starting city. */
       unvisited[0] = parentIndex;
       unvisited[parentIndex] = 0;
 
+      /* Swap the first child index with unvisited[1],
+	 or the first child of the parent in the path. */
       size_t tmpC = unvisited[childIndex];
       unvisited[childIndex] = unvisited[1];
       unvisited[1] = tmpC;
 
+      /* Swap the second child index with unvisited[2],
+	 or the second child of the parent in the path. */
       size_t tmpT = unvisited[thirdLevel];
       unvisited[thirdLevel] = unvisited[2];
       unvisited[2] = tmpT;
 
+      /* Swap the third child index with unvisited[3],
+	 or the third child fo the parent in the path. */
       size_t tmpF = unvisited[fourthLevel];
       unvisited[fourthLevel] = unvisited[3];
       unvisited[3] = tmpF;
 
-
+      /* Calculate the current distance of the path from the
+	 parent to the third child. */
       int curr_dist = adj[unvisited[0]][unvisited[1]] + adj[unvisited[1]][unvisited[2]] + adj[unvisited[2]][unvisited[3]];
-      //printf("Task %d: [%d, %d, %d]\n", taskId, unvisited[0], unvisited[1], unvisited[2]);
+
       solution_t local_solution;
       local_solution.distance = solution->distance;
+
+      /* If the distance of the path so far is less than the best general solution,
+	 run the serial code on the remaining subtree. */
       if (( curr_dist + shortestEdge * (ncities-2)) < solution->distance) {
 	solve_wsp_serial(unvisited[3], curr_dist, unvisited,
 			 &unvisited[4], ncities - 4, solution, &local_solution);
-/*#pragma omp critical
-	    {
-        if( local_solution.distance < solution->distance){
-	      // printf("Thread %d got iteration %lu with distance %d\n", omp_get_thread_num(), start_city, localSolution.distance);
-	      solution->distance = local_solution.distance;
-	      memcpy(solution->path, local_solution.path, ncities);
-        }
-        }*/
       }
     }
 }
-
-
-
-
-
-    /*
-#pragma omp parallel for default(shared) schedule(dynamic,1)
-    for (size_t start_city = 1; start_city < ncities; start_city++) {
-
-      unsigned char unvisited[MAX_N];
-      size_t j;
-
-#pragma omp parallel for private(j) schedule(dynamic)
-      for (j = 0; j < ncities; j ++) {
-	unvisited[j] = j;
-      }
-
-      unvisited[0] = start_city;
-      unvisited[start_city] = 0;
-
-      for(size_t i = 1; i < ncities; i ++){
-	int tmp = unvisited[1];
-	unvisited[1] = unvisited[i];
-	unvisited[i] = tmp;
-
-#pragma omp parallel for firstprivate(unvisited) default(shared) schedule(dynamic, 1)
-
-	for(size_t k = 2; k < ncities; k++) {
-	  int tmp2 = unvisited[2];
-	  unvisited[2] = unvisited[k];
-	  unvisited[k] = tmp2;
-
-	  int current_dist = adj[start_city][unvisited[1]] + adj[unvisited[1]][unvisited[2]];
-	  if(current_dist + shortestEdge * (ncities - 3) < (int)solution->distance){
-	    solve_wsp_serial(unvisited[2], current_dist, unvisited,
-			     &unvisited[3], ncities - 3, solution);
-	  }
-    */
-	  /*
-	  if (localSolution.distance < solution->distance) {
-#pragma omp critical
-	    {
-	      // printf("Thread %d got iteration %lu with distance %d\n", omp_get_thread_num(), start_city, localSolution.distance);
-	      solution->distance = localSolution.distance;
-	      memcpy(solution->path, localSolution.path, ncities);
-	    }
-	  }
-	  */

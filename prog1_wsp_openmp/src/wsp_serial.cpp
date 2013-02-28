@@ -89,15 +89,24 @@ void approx_wsp_greedy(solution_t *solution) {
  *    current_route[start_city] = 0;
  *    solve_wsp_serial(start_city, 0, current_route,
  *                     &current_route[1], ncities-1,
- *                     best_solution);
+ *                     best_solution, local_solution);
  */
+
+/* Pass in both the local solution of the current tree and the
+   global solution of the entire tree. */
 void solve_wsp_serial(size_t current_city, int current_distance,
                       unsigned char *current_route,
                       unsigned char *unvisited, size_t num_unvisited,
                       solution_t *general_solution, solution_t* local_solution) {
 
+  /* If we have reached the end of the path, then compare the
+     local solution to the global solution. If it is shorter than the
+     global solution, update it. */
   if (num_unvisited == 0) {
 
+    /* Since the global solution is shared among all threads,
+       the update will happen in a critical section so that there
+       are no concurrency and update issues. */
     if (current_distance < general_solution->distance) {
       #pragma omp critical
       {

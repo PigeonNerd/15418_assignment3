@@ -106,9 +106,9 @@ void solve_wsp_serial(size_t current_city, int current_distance,
      * solution if appropriate.
      */
     if (current_distance < best_solution->distance) {
-      best_solution->distance = current_distance;
-      memcpy(best_solution->path, current_route, ncities);
-      MPI_Request request;
+        best_solution->distance = current_distance;
+        memcpy(best_solution->path, current_route, ncities);
+        MPI_Request request;
       //printf("Thread %d sends best solution %d to master\n", procId, current_distance);
       MPI_Isend(best_solution, 1, mpi_solution_type, 0, PUT_BEST_SOLUTION_TAG, MPI_COMM_WORLD, &request);
     }

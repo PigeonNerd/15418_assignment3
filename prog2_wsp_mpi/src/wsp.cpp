@@ -112,7 +112,7 @@ void run_master(solution_t* best_solution){
      switch(status.MPI_TAG){
       case GET_TREE_TAG:
         if( taskId < totalTasks ){
-            //MPI_Wait(&sendRequest, &sendStatus);
+            MPI_Wait(&sendRequest, &sendStatus);
             buf[0] = taskId;
             buf[1] = best_solution->distance;
             MPI_Isend (&buf, 2, MPI_INT, status.MPI_SOURCE,
@@ -136,6 +136,13 @@ void run_master(solution_t* best_solution){
 	        //update best solution, put some lock
             best_solution->distance = solution.distance;
             memcpy(best_solution->path, solution.path, MAX_N);
+            int buf[2];
+            buf[0] = best_solution->distance;
+            MPI_Request request;
+            for(int i = 1 ; i < procs; i++){
+            MPI_Isend (&buf, 2, MPI_INT, i,
+		                PUT_BEST_SOLUTION_TAG, MPI_COMM_WORLD, &request);
+            }
       }
       break;
     }

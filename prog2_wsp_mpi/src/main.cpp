@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
    * Normally, we would do this for procId == 0, but we want to test that our
    * solution gets propogated to all processes.
    */
-  if (procId == procs - 1) {
+  if (procId == 0) {
     size_t i;
 
     printf("Solution found: (%d", solution.path[0]);

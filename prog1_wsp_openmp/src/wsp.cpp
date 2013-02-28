@@ -60,6 +60,11 @@ OA */
     size_t num_cities = ncities - 1;
     size_t totalTasks = (ncities - 1) * (ncities - 1) * (ncities - 2) * (ncities - 3);
     unsigned char unvisited[MAX_N];
+    unsigned char init[MAX_N];
+#pragma omp parallel for  schedule(dynamic)
+    for (size_t i = 0; i < ncities; i++) {
+      init[i] = i;
+    }
 
 #pragma omp parallel for private(unvisited) schedule(dynamic, 1)
     for (size_t taskId = 0; taskId < totalTasks; taskId++) {
@@ -70,9 +75,8 @@ OA */
       size_t thirdLevel = (taskId  % (num_cities - 1)) + 2;
       size_t fourthLevel = (taskId % (num_cities - 2)) + 3;
       //printf("Parent Index is %zd, child index is %zd, third index is %zd \n", parentIndex, childIndex, thirdLevel);
-      for (size_t i = 0; i < ncities; i++) {
-	    unvisited[i] = i;
-      }
+
+      memcpy(unvisited, init, ncities);
 
       //size_t tmpP = unvisited[parentIndex];
       //unvisited[parentIndex] = unvisited[0];
@@ -83,11 +87,11 @@ OA */
       size_t tmpC = unvisited[childIndex];
       unvisited[childIndex] = unvisited[1];
       unvisited[1] = tmpC;
-      
+
       size_t tmpT = unvisited[thirdLevel];
       unvisited[thirdLevel] = unvisited[2];
       unvisited[2] = tmpT;
-    
+
       size_t tmpF = unvisited[fourthLevel];
       unvisited[fourthLevel] = unvisited[3];
       unvisited[3] = tmpF;

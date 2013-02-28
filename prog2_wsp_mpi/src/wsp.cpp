@@ -23,7 +23,7 @@ extern size_t ncities;
 
 /* The adjacency matrix of the graph. adj[i][j] is the distance from i to j. */
 extern int adj[MAX_N][MAX_N];
-
+extern int shortestEdge;
 /*
  * Solves WSP from the current city with the current distance traveled,
  * and the provided set of unvisited nodes.
@@ -54,14 +54,34 @@ void solve_wsp_serial(size_t current_city, int current_distance,
 void approx_wsp_greedy(solution_t *solution);
 
 MPI_Datatype mpi_solution_type = MPI_DATATYPE_NULL;
-
+MPI_Datatype mpi_message_type = MPI_DATATYPE_NULL;
 static void init_mpi_solution_type() {
+
+  MPI_Datatype field_types1[] = {MPI_INT, MPI_INT};
+  int field_lengths1[] = {1, 1};
+  MPI_Aint field_offsets1[] = {0, 1};
+  size_t num_fields = 2;
+  int err = MPI_Type_create_struct(num_fields,
+                                   field_lengths1,
+                                   field_offsets1,
+                                   field_types1,
+                                   &mpi_message_type);
+
+  assert(err == MPI_SUCCESS);
+  err = MPI_Type_commit(&mpi_message_type);
+  assert(err == MPI_SUCCESS);
+
+  int mpi_struct_size1;
+
+  assert(MPI_SUCCESS == MPI_Type_size(mpi_message_type, &mpi_struct_size1));
+  assert(mpi_struct_size1 == sizeof(message_t));
+  
+  
   MPI_Datatype field_types[] = { MPI_UNSIGNED_CHAR, MPI_INT };
   int field_lengths[] = { MAX_N, 1 };
   MPI_Aint field_offsets[] = { 0, MAX_N };
-  size_t num_fields = 2;
 
-  int err = MPI_Type_create_struct(num_fields,
+  err = MPI_Type_create_struct(num_fields,
                                    field_lengths,
                                    field_offsets,
                                    field_types,
@@ -79,22 +99,23 @@ static void init_mpi_solution_type() {
 
 void run_master(solution_t* best_solution){
   solution_t solution;
-  solution_t toSend;
+  message_t toSend;
   MPI_Status status;
   MPI_Request sendRequest = MPI_REQUEST_NULL;
   MPI_Status sendStatus;
   int numWorkers = procs - 1;
-  size_t totalTasks = (ncities -1) * (ncities -1) * (ncities - 2);// * (ncities - 3);
+  int totalTasks = (ncities -1) * (ncities -1) * (ncities - 2) ;//* (ncities - 3);
   int taskId = 0;  
+  int buf[2];
   while(1){
      MPI_Recv(&solution, 1, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
      switch(status.MPI_TAG){
       case GET_TREE_TAG:
         if( taskId < totalTasks ){
-            MPI_Wait(&sendRequest, &sendStatus);
-            toSend.distance = best_solution->distance;
-            memcpy(toSend.path, &taskId, 4);
-            MPI_Isend (&toSend, 1, mpi_solution_type, status.MPI_SOURCE,
+            //MPI_Wait(&sendRequest, &sendStatus);
+            buf[0] = taskId;
+            buf[1] = best_solution->distance;
+            MPI_Isend (&buf, 2, MPI_INT, status.MPI_SOURCE,
 		        REPLY_TREE_TAG, MPI_COMM_WORLD, &sendRequest);
             taskId ++;
         } else{
@@ -102,7 +123,7 @@ void run_master(solution_t* best_solution){
         // so we let this worker die
             MPI_Request request;
             numWorkers--;
-            MPI_Isend (&solution, 1, mpi_solution_type, status.MPI_SOURCE,
+            MPI_Isend (&toSend, 1, mpi_message_type, status.MPI_SOURCE,
 		                DIE_TAG, MPI_COMM_WORLD, &request);
             if( numWorkers == 0){
                 return;
@@ -123,7 +144,8 @@ void run_master(solution_t* best_solution){
 
 void run_worker(solution_t* best_solution){
   MPI_Status status;
-  solution_t solution;
+  message_t msg;
+  int buf[2];
   unsigned char unvisited[MAX_N];
   unsigned char init[MAX_N];
   int num_cities = ncities - 1;
@@ -136,15 +158,15 @@ void run_worker(solution_t* best_solution){
     //printf("worker %d sends GET_TREE_MESSAGE\n", procId);
     MPI_Send (best_solution, 1, mpi_solution_type, 0,
 	      GET_TREE_TAG, MPI_COMM_WORLD);
-    MPI_Recv(&solution, 1, mpi_solution_type, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
+    MPI_Recv(&buf, 2, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
     switch(status.MPI_TAG){
         case REPLY_TREE_TAG:
             {
-            taskId =*(int*)solution.path;
-            //memcpy(&taskId, solution.path, 4); 
+            taskId = buf[0];
             //printf("THREAD %d got taskId %d\n", procId, taskId);
-            best_solution->distance = solution.distance;
-            size_t parentIndex = (taskId / ((num_cities)*(num_cities -1) )) + 1;
+            best_solution->distance = buf[1];
+            //printf("distance received %d\n", buf[1]);
+            size_t parentIndex = (taskId / ((num_cities)*(num_cities - 1) )) + 1;
             size_t childIndex = (taskId  % num_cities) + 1;
             size_t thirdLevel = (taskId  % (num_cities - 1)) + 2;
             //size_t fourthLevel = (taskId % (num_cities - 2)) + 3;
@@ -162,11 +184,13 @@ void run_worker(solution_t* best_solution){
             unvisited[2] = tmpT;
              
             //printf("[%d, %d, %d, %d]\n", unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
-            //size_t tmpF = unvisited[fourthLevel];
-            //unvisited[fourthLevel] = unvisited[3];
-            //unvisited[3] = tmpF;
-            int curr_dist = adj[unvisited[0]][unvisited[1]] + adj[unvisited[1]][unvisited[2]];
+           // size_t tmpF = unvisited[fourthLevel];
+           // unvisited[fourthLevel] = unvisited[3];
+           // unvisited[3] = tmpF;
+            int curr_dist = adj[unvisited[0]][unvisited[1]] + adj[unvisited[1]][unvisited[2]];//+ adj[unvisited[2]][unvisited[3]];
+            //if( curr_dist + shortestEdge*(ncities - 3) < best_solution->distance){
             solve_wsp_serial(unvisited[2], curr_dist, unvisited, &unvisited[3], ncities - 3, best_solution, mpi_solution_type);
+              //}
             }
             break;
 

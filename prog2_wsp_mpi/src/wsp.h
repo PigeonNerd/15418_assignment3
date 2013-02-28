@@ -9,6 +9,11 @@ typedef struct solution_s {
   int distance;
 } solution_t;
 
+typedef struct message_s {
+   int taskId;
+   int distance;
+} message_t;
+
 void solve_wsp(solution_t* solution);
 
 #endif

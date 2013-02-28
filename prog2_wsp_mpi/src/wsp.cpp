@@ -83,76 +83,58 @@ void run_master(solution_t* best_solution){
   MPI_Status status;
   MPI_Request sendRequest = MPI_REQUEST_NULL;
   MPI_Status sendStatus;
-
   int numWorkers = procs - 1;
-  int start_city = 1;
-  int secondLevel = 1;
-  int thirdLevel = 2;
-  int fourthLevel = 3;
-  //printf("master is running\n");
+  int num_cities = ncities - 1;
+  size_t totalTasks = (ncities -1) * (ncities -1) * (ncities - 2);// * (ncities - 3);
+  size_t taskId = 0;  
+  
   while(1){
-    MPI_Recv (&solution, 1, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG,
-	      MPI_COMM_WORLD, &status);
-    switch (status.MPI_TAG) {
-    case GET_TREE_TAG:
-     if(start_city < (int)ncities){
-        MPI_Wait(&sendRequest, &sendStatus);
-        for (size_t i = 0; i < ncities; i++) {
-             toSend.path[i] = i;
-        }
-        toSend.path[0] = start_city;
-        toSend.path[start_city] = 0;
-        if(secondLevel != 1){
-           int tmp = toSend.path[1];
-           toSend.path[1] = toSend.path[secondLevel];
-           toSend.path[secondLevel] = tmp;
-        }
-        if(thirdLevel != 2){
-            int tmp = toSend.path[2];
-            toSend.path[2] = toSend.path[thirdLevel];
-            toSend.path[thirdLevel] = tmp;
-        }
-        if(fourthLevel != 3){
-            int tmp = toSend.path[3];
-            toSend.path[3] = toSend.path[fourthLevel];
-            toSend.path[fourthLevel] = tmp;
-        }
-
-        toSend.distance = best_solution->distance;
-        //printf("master assign [%d, %d, %d, %d] to worker %d\n", solution.path[0], solution.path[1], solution.path[2], solution.path[3], status.MPI_SOURCE);
-        MPI_Isend (&toSend, 1, mpi_solution_type, status.MPI_SOURCE,
-		        REPLY_TREE_TAG, MPI_COMM_WORLD, &sendRequest);
-        fourthLevel ++;
-        if(fourthLevel == (int)ncities){
-            fourthLevel = 3;
-            thirdLevel ++;
-        if (thirdLevel == (int)ncities){
-             thirdLevel = 2;
-              secondLevel ++;
-            if(secondLevel == (int) ncities){
-                secondLevel = 1;
-                start_city++;
-                }
+     MPI_Recv(&solution, 1, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
+     switch(status.MPI_TAG){
+      case GET_TREE_TAG:
+        if( taskId < totalTasks ){
+            MPI_Wait(&sendRequest, &sendStatus);
+            size_t parentIndex = (taskId / ((num_cities)*(num_cities -1) )) + 1;
+            size_t childIndex = (taskId  % num_cities) + 1;
+            size_t thirdLevel = (taskId  % (num_cities - 1)) + 2;
+            //size_t fourthLevel = (taskId % (num_cities - 2)) + 3;
+            for(size_t i = 0; i < ncities; i++){
+                toSend.path[i] = i;
             }
-        }
-     }
-     
-     else{
+            toSend.path[0] = parentIndex;
+            toSend.path[parentIndex] = 0;
+
+            size_t tmpC = toSend.path[childIndex];
+            toSend.path[childIndex] = toSend.path[1];
+            toSend.path[1] = tmpC;
+      
+            size_t tmpT = toSend.path[thirdLevel];
+            toSend.path[thirdLevel] = toSend.path[2];
+            toSend.path[2] = tmpT;
+    
+            //size_t tmpF = toSend.path[fourthLevel];
+            //toSend.path[fourthLevel] = toSend.path[3];
+            //toSend.path[3] = tmpF;
+
+            toSend.distance = best_solution->distance;
+            MPI_Isend (&toSend, 1, mpi_solution_type, status.MPI_SOURCE,
+		        REPLY_TREE_TAG, MPI_COMM_WORLD, &sendRequest);
+            taskId ++;
+        } else{
         // here we run out of job
         // so we let this worker die
-        //printf("worker %d done its job\n", status.MPI_SOURCE);
-        MPI_Request request;
-        numWorkers--;
-        MPI_Isend (&solution, 1, mpi_solution_type, status.MPI_SOURCE,
+            MPI_Request request;
+            numWorkers--;
+            MPI_Isend (&solution, 1, mpi_solution_type, status.MPI_SOURCE,
 		                DIE_TAG, MPI_COMM_WORLD, &request);
-        if( numWorkers == 0){
-            size_t i;
-            for(i = 1; i < procs ; i++){
-                MPI_Isend (best_solution, 1, mpi_solution_type, i,
-		                DIE_TAG, MPI_COMM_WORLD, &request);
+            if( numWorkers == 0){
+                size_t i;
+                for(i = 1; i < procs ; i++){
+                    MPI_Isend (best_solution, 1, mpi_solution_type, i,
+		                    DIE_TAG, MPI_COMM_WORLD, &request);
+                    }
+                return;
             }
-            return;
-        }
      }
       break;
     case PUT_BEST_SOLUTION_TAG:
@@ -180,10 +162,10 @@ void run_worker(solution_t* best_solution){
         case REPLY_TREE_TAG:
             best_solution->distance = solution.distance;
             //printf("worker %d receives work [%d, %d, %d, %d]\n", procId, solution.path[0], solution.path[1], solution.path[2], solution.path[3]);
-            //solve_wsp_serial(solution.path[1], adj[solution.path[0]][solution.path[1]], solution.path,
-           //            &solution.path[2], ncities - 2, best_solution, mpi_solution_type);
-            solve_wsp_serial(solution.path[3], adj[solution.path[0]][solution.path[1]] + adj[solution.path[1]][solution.path[2]] + adj[solution.path[2]][solution.path[3]] , solution.path,
-                       &solution.path[4], ncities - 4, best_solution, mpi_solution_type);
+            solve_wsp_serial(solution.path[2], adj[solution.path[0]][solution.path[1]] + adj[solution.path[1]][solution.path[2]],  solution.path,
+                       &solution.path[3], ncities - 3, best_solution, mpi_solution_type);
+            //solve_wsp_serial(solution.path[3], adj[solution.path[0]][solution.path[1]] + adj[solution.path[1]][solution.path[2]] + adj[solution.path[2]][solution.path[3]] , solution.path,
+              //         &solution.path[4], ncities - 4, best_solution, mpi_solution_type);
             break;
         case DIE_TAG:
             //printf("worker %d recieves die and wait\n", procId);
@@ -278,9 +260,9 @@ void solve_wsp1(solution_t* solution){
 }
 
 void solve_wsp(solution_t *solution) {
-    //solve_wsp1(solution);  
-    //MPI_Barrier(MPI_COMM_WORLD);
-    if(procs == 1){
+   //solve_wsp1(solution);  
+   //MPI_Barrier(MPI_COMM_WORLD);
+  if(procs == 1){
     solve_wsp_normal(solution);
   }else{
   approx_wsp_greedy(solution);

@@ -87,7 +87,10 @@ void run_master(solution_t* best_solution){
   int num_cities = ncities - 1;
   size_t totalTasks = (ncities -1) * (ncities -1) * (ncities - 2);// * (ncities - 3);
   size_t taskId = 0;  
-  
+  unsigned char unvisited[MAX_N];
+  for(size_t i = 0; i < ncities; i++){
+       unvisited[i] = i;
+   }
   while(1){
      MPI_Recv(&solution, 1, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
      switch(status.MPI_TAG){
@@ -98,9 +101,9 @@ void run_master(solution_t* best_solution){
             size_t childIndex = (taskId  % num_cities) + 1;
             size_t thirdLevel = (taskId  % (num_cities - 1)) + 2;
             //size_t fourthLevel = (taskId % (num_cities - 2)) + 3;
-            for(size_t i = 0; i < ncities; i++){
-                toSend.path[i] = i;
-            }
+            
+            memcpy(toSend.path, unvisited, ncities);
+            
             toSend.path[0] = parentIndex;
             toSend.path[parentIndex] = 0;
 

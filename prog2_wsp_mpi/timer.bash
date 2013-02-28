@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Modify these if you want.
-num_threads=6
+num_threads=12
 
 # If this is defined, use it a mpi hostfile to run on multiple machines at
 # once.

@@ -75,8 +75,8 @@ static void init_mpi_solution_type() {
 
   assert(MPI_SUCCESS == MPI_Type_size(mpi_message_type, &mpi_struct_size1));
   assert(mpi_struct_size1 == sizeof(message_t));
-  
-  
+
+
   MPI_Datatype field_types[] = { MPI_UNSIGNED_CHAR, MPI_INT };
   int field_lengths[] = { MAX_N, 1 };
   MPI_Aint field_offsets[] = { 0, MAX_N };
@@ -105,10 +105,10 @@ void run_master(solution_t* best_solution){
   MPI_Status sendStatus;
   int numWorkers = procs - 1;
   int totalTasks = (ncities -1) * (ncities -1) * (ncities - 2) ;//* (ncities - 3);
-  int taskId = 0;  
+  int taskId = 0;
   int buf[2];
   while(1){
-     MPI_Recv(&solution, 1, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
+     MPI_Recv(&solution, 1, mpi_solution_type, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
      switch(status.MPI_TAG){
       case GET_TREE_TAG:
         if( taskId < totalTasks ){
@@ -121,7 +121,7 @@ void run_master(solution_t* best_solution){
         } else{
         // here we run out of job
         // so we let this worker die
-            MPI_Request request;
+	  MPI_Request request;
             numWorkers--;
             MPI_Isend (&toSend, 1, mpi_message_type, status.MPI_SOURCE,
 		                DIE_TAG, MPI_COMM_WORLD, &request);
@@ -165,7 +165,7 @@ void run_worker(solution_t* best_solution){
     //printf("worker %d sends GET_TREE_MESSAGE\n", procId);
     MPI_Send (best_solution, 1, mpi_solution_type, 0,
 	      GET_TREE_TAG, MPI_COMM_WORLD);
-    MPI_Recv(&buf, 2, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);   
+    MPI_Recv(&buf, 2, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
     switch(status.MPI_TAG){
         case REPLY_TREE_TAG:
             {
@@ -178,18 +178,18 @@ void run_worker(solution_t* best_solution){
             size_t thirdLevel = (taskId  % (num_cities - 1)) + 2;
             //size_t fourthLevel = (taskId % (num_cities - 2)) + 3;
             memcpy(unvisited, init, ncities);
-            
+
             unvisited[0] = parentIndex;
             unvisited[parentIndex] = 0;
 
             size_t tmpC = unvisited[childIndex];
             unvisited[childIndex] = unvisited[1];
             unvisited[1] = tmpC;
-      
+
             size_t tmpT = unvisited[thirdLevel];
             unvisited[thirdLevel] = unvisited[2];
             unvisited[2] = tmpT;
-             
+
             //printf("[%d, %d, %d, %d]\n", unvisited[0], unvisited[1], unvisited[2], unvisited[3]);
            // size_t tmpF = unvisited[fourthLevel];
            // unvisited[fourthLevel] = unvisited[3];
@@ -203,7 +203,7 @@ void run_worker(solution_t* best_solution){
 
         case DIE_TAG:
             {
-            //MPI_Recv(best_solution, 1, mpi_solution_type, 0, DIE_TAG, MPI_COMM_WORLD, &status);   
+            //MPI_Recv(best_solution, 1, mpi_solution_type, 0, DIE_TAG, MPI_COMM_WORLD, &status);
             //printf("Thread %d leaves with best dist %d\n", procId, best_solution->distance);
             return;
             }
@@ -252,7 +252,7 @@ void solve_wsp_normal(solution_t *solution) {
     err =
       MPI_Recv(solution, 1, mpi_solution_type, 0, 0, MPI_COMM_WORLD, &status);
     assert(err == MPI_SUCCESS);
-    /* 
+    /*
      * The status object contains information about the request, including the
      * sender. In this case, it really should be the master since nobody else
      * is sending anything.
@@ -262,7 +262,7 @@ void solve_wsp_normal(solution_t *solution) {
 }
 
 void solve_wsp(solution_t *solution) {
-   //solve_wsp1(solution);  
+   //solve_wsp1(solution);
    //MPI_Barrier(MPI_COMM_WORLD);
   if(procs == 1){
     solve_wsp_normal(solution);

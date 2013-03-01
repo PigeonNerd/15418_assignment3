@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "./wsp.h"
-#define PUT_BEST_SOLUTION_TAG 2 
+#define PUT_BEST_SOLUTION_TAG 2
 /* The number of processors in use. */
 extern size_t procs;
 
@@ -99,7 +99,8 @@ void approx_wsp_greedy(solution_t *solution) {
 void solve_wsp_serial(size_t current_city, int current_distance,
                       unsigned char *current_route,
                       unsigned char *unvisited, size_t num_unvisited,
-                      solution_t *best_solution, MPI_Datatype mpi_solution_type) {
+                      solution_t *best_solution,
+                      MPI_Datatype mpi_solution_type) {
   if (num_unvisited == 0) {
     /*
      * If there are no more cities left unvisited, update the global best
@@ -109,8 +110,8 @@ void solve_wsp_serial(size_t current_city, int current_distance,
         best_solution->distance = current_distance;
         memcpy(best_solution->path, current_route, ncities);
         MPI_Request request;
-      //printf("Thread %d sends best solution %d to master\n", procId, current_distance);
-      MPI_Isend(best_solution, 1, mpi_solution_type, 0, PUT_BEST_SOLUTION_TAG, MPI_COMM_WORLD, &request);
+      MPI_Isend(best_solution, 1, mpi_solution_type,
+              0, PUT_BEST_SOLUTION_TAG, MPI_COMM_WORLD, &request);
     }
     return;
   }
@@ -141,7 +142,8 @@ void solve_wsp_serial(size_t current_city, int current_distance,
     unvisited[0] = next_city;
 
     solve_wsp_serial(next_city, next_dist, current_route,
-                     &unvisited[1], num_unvisited - 1, best_solution, mpi_solution_type);
+                     &unvisited[1], num_unvisited - 1,
+                     best_solution, mpi_solution_type);
 
     /* Restore unvisited to its former state. */
     unvisited[0] = unvisited[i];
